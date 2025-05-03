@@ -7,3 +7,14 @@ curl -X POST http://localhost:8080/replicate \
     "PG_PORT": "5432",
     "REPLICATION_CONFIGS": "creds/cred.json|dataset_id|db_destino"
 }'
+
+
+Postman
+
+{
+    "PG_USER": "postgres",
+    "PG_PASSWORD": "ns2b7bfqbf",
+    "PG_HOST": "34.85.175.168",
+    "PG_PORT": "5432",
+    "REPLICATION_CONFIGS": "creds.copy.json|notion-447010.clean_cafeleather|notion"
+}
