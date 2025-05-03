@@ -7,7 +7,14 @@ WORKDIR /app
 # Copiar archivos necesarios
 COPY requirements.txt .
 COPY app.py .
-COPY creds ./creds
+COPY creds/creds.copy.json .
+
+# Instalar herramientas del sistema necesarias para compilar algunos paquetes
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 
 # Instalar dependencias

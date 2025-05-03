@@ -5,3 +5,4 @@ google-cloud-bigquery
 google-auth
 sqlalchemy
 psycopg2-binary
+db-dtypes
