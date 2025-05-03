@@ -17,3 +17,6 @@ steps:
 
 images:
   - gcr.io/devcode-457115/sync-database:develop-$SHORT_SHA
+
+options:
+  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
