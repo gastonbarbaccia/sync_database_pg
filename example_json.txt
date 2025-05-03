@@ -1,0 +1,9 @@
+curl -X POST http://localhost:8080/replicate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "PG_USER": "usuario",
+    "PG_PASSWORD": "contraseña",
+    "PG_HOST": "localhost",
+    "PG_PORT": "5432",
+    "REPLICATION_CONFIGS": "creds/cred.json|dataset_id|db_destino"
+}'
