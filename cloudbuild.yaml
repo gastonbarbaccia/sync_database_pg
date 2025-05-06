@@ -13,8 +13,7 @@ steps:
       '--region', 'us-east4',
       '--platform', 'managed',
       '--allow-unauthenticated',
-      '--update-secrets', '/secrets/credential_notion.json=credential_notion:latest',
-      '--update-secrets', '/secrets/credential_cafeleather.json=credential_cafeleather:latest'
+      '--update-secrets', '/secrets/credential_notion.json=credential_notion:latest'
       ]
 
 images:
