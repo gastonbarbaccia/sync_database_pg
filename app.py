@@ -11,6 +11,29 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 app = Flask(__name__)
 
+def get_bigquery_client(cred_path=None):
+    """
+    Obtiene el cliente de BigQuery, opcionalmente usando un archivo de credenciales.
+    """
+    try:
+        if cred_path:
+            credentials = service_account.Credentials.from_service_account_file(
+                cred_path,
+                scopes=[
+                    "https://www.googleapis.com/auth/cloud-platform",
+                    "https://www.googleapis.com/auth/drive"
+                ]
+            )
+            client = bigquery.Client(credentials=credentials, project=credentials.project_id)
+        else:
+            client = bigquery.Client()
+
+        # Validar conexión
+        list(client.list_datasets())
+        return client
+    except Exception as e:
+        raise RuntimeError(f"No se pudo conectar a BigQuery: {e}")
+
 @app.route('/replicate', methods=['POST'])
 def replicate():
     data = request.json
@@ -41,22 +64,15 @@ def replicate():
             results.append({"config": config, "status": "error", "message": f"Credencial no encontrada: {cred_path}"})
             continue
 
+        # Conectar con BigQuery
         try:
-            credentials = service_account.Credentials.from_service_account_file(
-                cred_path,
-                scopes=[
-                    "https://www.googleapis.com/auth/cloud-platform",
-                    "https://www.googleapis.com/auth/drive"
-                ]
-            )
-            client = bigquery.Client(credentials=credentials, project=credentials.project_id)
-            list(client.list_datasets())
+            client = get_bigquery_client(cred_path)
         except Exception as e:
-            results.append({"config": config, "status": "error", "message": f"BigQuery error: {e}"})
+            results.append({"config": config, "status": "error", "message": str(e)})
             continue
 
+        # Crear DB en PostgreSQL si no existe
         try:
-            # Paso 1: Verificar y crear la base con psycopg2
             conn = psycopg2.connect(
                 dbname="postgres",
                 user=PG_USER,
@@ -74,32 +90,31 @@ def replicate():
             cur.close()
             conn.close()
 
-            # Paso 2: Verificamos la conexión a la base destino con SQLAlchemy
+            # Verificar conexión a la nueva DB
             engine = create_engine(f'postgresql://{PG_USER}:{PG_PASSWORD}@{PG_HOST}:{PG_PORT}/{pg_db}')
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
+
         except OperationalError as e:
             results.append({"config": config, "status": "error", "message": f"PostgreSQL error: {e}"})
             continue
         except Exception as e:
-            results.append({"config": config, "status": "error", "message": f"Error al verificar/crear la base de datos: {e}"})
+            results.append({"config": config, "status": "error", "message": f"Error al crear/verificar la DB: {e}"})
             continue
 
+        # Replicar las tablas
         try:
-            # Eliminación de tablas anteriores para reemplazo
             engine = create_engine(f'postgresql://{PG_USER}:{PG_PASSWORD}@{PG_HOST}:{PG_PORT}/{pg_db}')
             with engine.connect() as conn:
+                # Eliminar tablas anteriores
                 for table in client.list_tables(dataset_id):
-                    table_name = table.table_id
-                    conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
+                    conn.execute(text(f'DROP TABLE IF EXISTS "{table.table_id}"'))
 
-            # Replicación de tablas desde BigQuery
+            # Reescribir tablas desde BigQuery
             tables = list(client.list_tables(dataset_id))
             for table in tables:
                 table_id = f"{dataset_id}.{table.table_id}"
                 df = client.query(f"SELECT * FROM `{table_id}`").to_dataframe()
-                
-                # Reemplazamos las tablas en PostgreSQL
                 df.to_sql(table.table_id, engine, if_exists='replace', index=False)
 
             results.append({"config": config, "status": "success", "message": f"{len(tables)} tablas replicadas"})
