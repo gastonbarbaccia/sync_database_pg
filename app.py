@@ -11,27 +11,21 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 app = Flask(__name__)
 
-def get_bigquery_client(cred_path=None):
+def get_bigquery_client():
     """
     Obtiene el cliente de BigQuery, opcionalmente usando un archivo de credenciales.
     """
     try:
-        if cred_path:
-            credentials = service_account.Credentials.from_service_account_file(
-                cred_path,
-                scopes=[
-                    "https://www.googleapis.com/auth/cloud-platform",
-                    "https://www.googleapis.com/auth/drive"
-                ]
-            )
-            client = bigquery.Client(credentials=credentials, project=credentials.project_id)
-        else:
-            client = bigquery.Client()
+        
+        client = bigquery.Client()
 
         # Validar conexión
         list(client.list_datasets())
+
         return client
+    
     except Exception as e:
+
         raise RuntimeError(f"No se pudo conectar a BigQuery: {e}")
 
 @app.route('/replicate', methods=['POST'])
@@ -54,18 +48,14 @@ def replicate():
 
     for config in replication_configs:
         parts = config.strip().split("|")
-        if len(parts) != 3:
-            results.append({"config": config, "status": "error", "message": "Formato inválido. Se espera: cred_path|dataset_id|pg_db"})
+        if len(parts) != 2:
+            results.append({"config": config, "status": "error", "message": "Formato inválido. Se espera: dataset_id|pg_db"})
             continue
 
-        cred_path, dataset_id, pg_db = parts
-
-        if not os.path.exists(cred_path):
-            results.append({"config": config, "status": "error", "message": f"Credencial no encontrada: {cred_path}"})
-            continue
+        dataset_id, pg_db = parts
 
         try:
-            client = get_bigquery_client(cred_path)
+            client = get_bigquery_client()
         except Exception as e:
             results.append({"config": config, "status": "error", "message": str(e)})
             continue
