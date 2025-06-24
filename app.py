@@ -55,7 +55,7 @@ def replicate():
     for config in replication_configs:
         parts = config.strip().split("|")
         if len(parts) != 3:
-            results.append({"config": config, "status": "error", "message": "Formato inválido"})
+            results.append({"config": config, "status": "error", "message": "Formato inválido. Se espera: cred_path|dataset_id|pg_db"})
             continue
 
         cred_path, dataset_id, pg_db = parts
@@ -64,7 +64,6 @@ def replicate():
             results.append({"config": config, "status": "error", "message": f"Credencial no encontrada: {cred_path}"})
             continue
 
-        # Conectar con BigQuery
         try:
             client = get_bigquery_client(cred_path)
         except Exception as e:
@@ -106,11 +105,9 @@ def replicate():
         try:
             engine = create_engine(f'postgresql://{PG_USER}:{PG_PASSWORD}@{PG_HOST}:{PG_PORT}/{pg_db}')
             with engine.connect() as conn:
-                # Eliminar tablas anteriores
                 for table in client.list_tables(dataset_id):
-                    conn.execute(text(f'DROP TABLE IF EXISTS "{table.table_id}"'))
+                    conn.execute(text(f'DROP TABLE IF EXISTS \"{table.table_id}\"'))
 
-            # Reescribir tablas desde BigQuery
             tables = list(client.list_tables(dataset_id))
             for table in tables:
                 table_id = f"{dataset_id}.{table.table_id}"
